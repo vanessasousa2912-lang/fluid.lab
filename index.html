@@ -9,10 +9,9 @@
         body { margin: 0; overflow: hidden; background-color: #030508; font-family: sans-serif; }
         canvas { display: block; touch-action: none; cursor: crosshair; }
         
-        /* Painel de controlos ajustado para não ficar por baixo do botão */
         .controls {
             position: absolute;
-            top: 70px; /* Deslocado para baixo para dar espaço ao botão */
+            top: 70px; 
             left: 20px;
             background: rgba(10, 15, 25, 0.95);
             padding: 20px;
@@ -36,7 +35,6 @@
             pointer-events: none;
         }
 
-        /* Botão de alternar posicionado de forma fixa e isolada */
         .toggle-btn {
             position: absolute;
             top: 20px;
@@ -73,7 +71,6 @@
             outline: none;
         }
 
-        /* Estilização da scrollbar para o painel */
         .controls::-webkit-scrollbar { width: 4px; }
         .controls::-webkit-scrollbar-track { background: transparent; }
         .controls::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
@@ -81,7 +78,6 @@
 </head>
 <body>
 
-    <!-- Botão de fechar/abrir agora fica acima do painel -->
     <button id="toggleBtn" class="toggle-btn" title="Esconder/Mostrar Menu">
         <svg id="arrowIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
     </button>
@@ -95,7 +91,7 @@
                 <option value="es">ES</option>
             </select>
         </div>
-        <p id="txt-subtitle" class="text-[9px] text-blue-400 mb-4 uppercase tracking-widest font-semibold">Física de Partículas</p>
+        <p id="txt-subtitle" class="text-[9px] text-blue-400 mb-4 uppercase tracking-widest font-semibold">Física Otimizada</p>
         
         <div class="flex flex-col">
             <div class="control-group">
@@ -125,7 +121,7 @@
 
             <div class="control-group">
                 <label><span class="lbl-radius">Raio</span> <span id="val-radius">18</span></label>
-                <input type="range" id="input-radius" min="5" max="60" step="1" value="18">
+                <input type="range" id="input-radius" min="10" max="60" step="1" value="18">
             </div>
 
             <button id="resetBtn" class="bg-blue-600 hover:bg-blue-500 py-2 rounded-lg text-xs font-bold transition-all shadow-lg shadow-blue-900/20">Resetar Simulação</button>
@@ -150,30 +146,53 @@
         let boxes = [];
         let mouseX = 0, mouseY = 0;
         let isMagnetActive = false;
+        let magnetGradient = null;
         
         let mouseTimer;
         const holdThreshold = 200;
 
         const translations = {
             pt: {
-                title: "fluid.lab!", subtitle: "Física de Partículas", particles: "Partículas",
+                title: "fluid.lab!", subtitle: "Física Otimizada", particles: "Partículas",
                 gravity: "Gravidade", pressure: "Pressão", viscosity: "Viscosidade",
                 cohesion: "Coesão (Densidade)", radius: "Raio de Influência",
                 reset: "Resetar Simulação", footer: "Clique: Cubo | 3x no Cubo: Apaga | Segure: Imã", magnet: "Imã Ativo"
             },
             en: {
-                title: "fluid.lab!", subtitle: "Particle Physics", particles: "Particles",
+                title: "fluid.lab!", subtitle: "Optimized Physics", particles: "Particles",
                 gravity: "Gravity", pressure: "Pressure", viscosity: "Viscosity",
                 cohesion: "Cohesion (Density)", radius: "Influence Radius",
                 reset: "Reset Simulation", footer: "Click: Cube | 3x on Cube: Delete | Hold: Magnet", magnet: "Magnet Active"
             },
             es: {
-                title: "fluid.lab!", subtitle: "Física de Partículas", particles: "Partículas",
+                title: "fluid.lab!", subtitle: "Física Optimizada", particles: "Partículas",
                 gravity: "Gravedad", pressure: "Presión", viscosity: "Viscosidad",
                 cohesion: "Cohesión (Densidade)", radius: "Radio de Influencia",
                 reset: "Reiniciar Simulación", footer: "Click: Cubo | 3x en Cubo: Borrar | Mantener: Imán", magnet: "Imán Activo"
             }
         };
+
+        const config = {
+            particleCount: 2000, gravity: 1.00, pressure: 1.00, viscosity: 0.01,
+            targetDensity: 3.20, smoothingRadius: 18, substeps: 4, 
+            particleRadius: 3.5, nearPressureMultiplier: 1.5,
+            magnetStrength: 2.5, magnetRadius: 220
+        };
+
+        // SPATIAL HASH GRID - Otimização principal
+        const grid = new Map();
+        function buildSpatialGrid(cellSize) {
+            grid.clear();
+            const len = particles.length;
+            for (let i = 0; i < len; i++) {
+                const p = particles[i];
+                const gx = (p.x / cellSize) | 0;
+                const gy = (p.y / cellSize) | 0;
+                const key = `${gx},${gy}`;
+                if (!grid.has(key)) grid.set(key, []);
+                grid.get(key).push(i);
+            }
+        }
 
         function updateLanguage(lang) {
             const t = translations[lang];
@@ -191,19 +210,11 @@
         }
 
         langSelect.addEventListener('change', (e) => updateLanguage(e.target.value));
-
         toggleBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             sidePanel.classList.toggle('collapsed');
             toggleBtn.classList.toggle('active');
         });
-
-        const config = {
-            particleCount: 2000, gravity: 1.00, pressure: 1.00, viscosity: 0.01,
-            targetDensity: 3.20, smoothingRadius: 18, substeps: 4, 
-            particleRadius: 3.5, nearPressureMultiplier: 1.5,
-            magnetStrength: 2.5, magnetRadius: 220
-        };
 
         const bindInput = (id, key, valId, isInt = false) => {
             const el = document.getElementById(id);
@@ -230,21 +241,21 @@
                 this.density = 0;
                 this.nearDensity = 0;
             }
-            update() {
+            update(substeps, grav) {
                 if (isMagnetActive) {
                     const dx = mouseX - this.x;
                     const dy = mouseY - this.y;
-                    const distSq = dx * dx + dy * dy;
-                    if (distSq < config.magnetRadius * config.magnetRadius) {
-                        const dist = Math.sqrt(distSq) || 1;
+                    const d2 = dx * dx + dy * dy;
+                    if (d2 < config.magnetRadius * config.magnetRadius) {
+                        const dist = Math.sqrt(d2) || 1;
                         const force = (1 - dist / config.magnetRadius) * config.magnetStrength;
                         this.vx += (dx / dist) * force;
                         this.vy += (dy / dist) * force;
                     }
                 }
-                this.vy += config.gravity / config.substeps;
-                this.x += this.vx / config.substeps;
-                this.y += this.vy / config.substeps;
+                this.vy += grav;
+                this.x += this.vx / substeps;
+                this.y += this.vy / substeps;
                 this.vx *= 0.998; this.vy *= 0.998;
                 const margin = config.particleRadius;
                 if (this.x < margin) { this.x = margin; this.vx *= -0.3; }
@@ -263,23 +274,23 @@
                 this.color = `hsl(${Math.random() * 40 + 190}, 60%, 50%)`;
                 this.clicks = 0;
             }
-            update() {
+            update(substeps, grav) {
                 if (isMagnetActive) {
                     const cx = this.x + this.w/2;
                     const cy = this.y + this.h/2;
                     const dx = mouseX - cx;
                     const dy = mouseY - cy;
-                    const distSq = dx * dx + dy * dy;
-                    if (distSq < config.magnetRadius * config.magnetRadius) {
-                        const dist = Math.sqrt(distSq) || 1;
+                    const d2 = dx * dx + dy * dy;
+                    if (d2 < config.magnetRadius * config.magnetRadius) {
+                        const dist = Math.sqrt(d2) || 1;
                         const force = (1 - dist / config.magnetRadius) * (config.magnetStrength / 1.5);
                         this.vx += (dx / dist) * force;
                         this.vy += (dy / dist) * force;
                     }
                 }
-                this.vy += config.gravity / config.substeps;
-                this.x += this.vx / config.substeps;
-                this.y += this.vy / config.substeps;
+                this.vy += grav;
+                this.x += this.vx / substeps;
+                this.y += this.vy / substeps;
                 this.vx *= 0.99; this.vy *= 0.99;
                 if (this.y + this.h > height) { this.y = height - this.h; this.vy *= -0.15; }
                 if (this.x < 0) { this.x = 0; this.vx *= -0.15; }
@@ -307,15 +318,28 @@
             const cols = Math.ceil(Math.sqrt(count * (width/height)));
             const spacing = Math.min(width, height) / (cols * 1.1);
             for(let i=0; i < count; i++) {
-                const r = Math.floor(i / cols);
+                const r = (i / cols) | 0;
                 const c = i % cols;
                 particles.push(new Particle(width/2 - (cols*spacing)/2 + c*spacing, 50 + r*spacing));
             }
         }
 
         function solvePhysics() {
-            for (let step = 0; step < config.substeps; step++) {
-                for (let b of boxes) b.update();
+            // Cache de valores
+            const substeps = config.substeps;
+            const gravity = config.gravity / substeps;
+            const radius = config.smoothingRadius;
+            const r2 = radius * radius;
+            const pressureMultiplier = config.pressure;
+            const nearMultiplier = config.nearPressureMultiplier;
+            const targetDensity = config.targetDensity;
+            const viscosity = config.viscosity;
+
+            for (let step = 0; step < substeps; step++) {
+                // Caixas
+                for (let b of boxes) b.update(substeps, gravity);
+                
+                // Colisão Caixa-Caixa
                 for (let i = 0; i < boxes.length; i++) {
                     for (let j = i + 1; j < boxes.length; j++) {
                         let b1 = boxes[i], b2 = boxes[j];
@@ -334,46 +358,82 @@
                         }
                     }
                 }
-                for (let p of particles) { p.density = 0; p.nearDensity = 0; }
-                const radius = config.smoothingRadius;
-                const r2 = radius * radius;
-                for (let i = 0; i < particles.length; i++) {
+
+                // Grid Espacial
+                buildSpatialGrid(radius);
+
+                // Densidade via Grid
+                const pLen = particles.length;
+                for (let i = 0; i < pLen; i++) {
                     const p1 = particles[i];
-                    for (let j = i + 1; j < particles.length; j++) {
-                        const p2 = particles[j];
-                        const dx = p2.x - p1.x; const dy = p2.y - p1.y;
-                        const d2 = dx * dx + dy * dy;
-                        if (d2 < r2) {
-                            const d = Math.sqrt(d2) || 0.1;
-                            const a = 1 - d / radius; const a2 = a * a;
-                            p1.density += a2; p1.nearDensity += a2 * a;
-                            p2.density += a2; p2.nearDensity += a2 * a;
+                    p1.density = 0; p1.nearDensity = 0;
+                    
+                    const gx = (p1.x / radius) | 0;
+                    const gy = (p1.y / radius) | 0;
+
+                    for (let ox = -1; ox <= 1; ox++) {
+                        for (let oy = -1; oy <= 1; oy++) {
+                            const key = `${gx + ox},${gy + oy}`;
+                            const cell = grid.get(key);
+                            if (!cell) continue;
+                            for (let j of cell) {
+                                if (i === j) continue;
+                                const p2 = particles[j];
+                                const dx = p2.x - p1.x; const dy = p2.y - p1.y;
+                                const d2 = dx * dx + dy * dy;
+                                if (d2 < r2) {
+                                    const d = Math.sqrt(d2) || 0.1;
+                                    const a = 1 - d / radius;
+                                    const a2 = a * a;
+                                    p1.density += a2;
+                                    p1.nearDensity += a2 * a;
+                                }
+                            }
                         }
                     }
                 }
-                for (let i = 0; i < particles.length; i++) {
+
+                // Pressão e Viscosidade via Grid
+                for (let i = 0; i < pLen; i++) {
                     const p1 = particles[i];
-                    const pressure = (p1.density - config.targetDensity) * config.pressure;
-                    const nearPressure = p1.nearDensity * config.nearPressureMultiplier;
-                    for (let j = i + 1; j < particles.length; j++) {
-                        const p2 = particles[j];
-                        const dx = p2.x - p1.x; const dy = p2.y - p1.y;
-                        const d2 = dx * dx + dy * dy;
-                        if (d2 < r2) {
-                            const d = Math.sqrt(d2) || 0.1;
-                            const a = 1 - d / radius;
-                            const pTotal = (pressure + (p2.density - config.targetDensity) * config.pressure) * a + (nearPressure + p2.nearDensity * config.nearPressureMultiplier) * a * a;
-                            const ox = (dx / d) * pTotal * 0.5; const oy = (dy / d) * pTotal * 0.5;
-                            p1.vx -= ox; p1.vy -= oy; p2.vx += ox; p2.vy += oy;
-                            const vScale = config.viscosity * a;
-                            p1.vx += (p2.vx - p1.vx) * vScale; p1.vy += (p2.vy - p1.vy) * vScale;
-                            p2.vx -= (p2.vx - p1.vx) * vScale; p2.vy -= (p2.vy - p1.vy) * vScale;
+                    const pressure = (p1.density - targetDensity) * pressureMultiplier;
+                    const nearPressure = p1.nearDensity * nearMultiplier;
+                    
+                    const gx = (p1.x / radius) | 0;
+                    const gy = (p1.y / radius) | 0;
+
+                    for (let ox = -1; ox <= 1; ox++) {
+                        for (let oy = -1; oy <= 1; oy++) {
+                            const key = `${gx + ox},${gy + oy}`;
+                            const cell = grid.get(key);
+                            if (!cell) continue;
+                            for (let j of cell) {
+                                if (j <= i) continue; // Evita duplicar forças
+                                const p2 = particles[j];
+                                const dx = p2.x - p1.x; const dy = p2.y - p1.y;
+                                const d2 = dx * dx + dy * dy;
+                                if (d2 < r2) {
+                                    const d = Math.sqrt(d2) || 0.1;
+                                    const a = 1 - d / radius;
+                                    const pTotal = (pressure + (p2.density - targetDensity) * pressureMultiplier) * a + (nearPressure + p2.nearDensity * nearMultiplier) * a * a;
+                                    const forceX = (dx / d) * pTotal * 0.5; 
+                                    const forceY = (dy / d) * pTotal * 0.5;
+                                    p1.vx -= forceX; p1.vy -= forceY;
+                                    p2.vx += forceX; p2.vy += forceY;
+                                    
+                                    const vScale = viscosity * a;
+                                    const rvx = p2.vx - p1.vx; const rvy = p2.vy - p1.vy;
+                                    p1.vx += rvx * vScale; p1.vy += rvy * vScale;
+                                    p2.vx -= rvx * vScale; p2.vy -= rvy * vScale;
+                                }
+                            }
                         }
                     }
+
+                    // Colisão com Caixas
                     for (let b of boxes) {
                         if (p1.x > b.x && p1.x < b.x + b.w && p1.y > b.y && p1.y < b.y + b.h) {
-                            let dL = p1.x - b.x; let dR = b.x + b.w - p1.x;
-                            let dT = p1.y - b.y; let dB = b.y + b.h - p1.y;
+                            let dL = p1.x - b.x, dR = b.x + b.w - p1.x, dT = p1.y - b.y, dB = b.y + b.h - p1.y;
                             let min = Math.min(dL, dR, dT, dB);
                             const push = 0.6;
                             if (min === dL) { p1.x = b.x - 1; p1.vx -= push; b.vx += push/b.mass; }
@@ -382,7 +442,7 @@
                             else if (min === dB) { p1.y = b.y + b.h + 1; p1.vy += push; b.vy -= push/b.mass; }
                         }
                     }
-                    p1.update();
+                    p1.update(substeps, gravity);
                 }
             }
         }
@@ -390,22 +450,29 @@
         function draw() {
             ctx.fillStyle = '#030508';
             ctx.fillRect(0, 0, width, height);
+            
+            // Reduz substeps se tiver muitas partículas para manter FPS
+            config.substeps = particles.length > 3000 ? 2 : 4;
+
             solvePhysics();
+
             if (isMagnetActive) {
-                const grad = ctx.createRadialGradient(mouseX, mouseY, 5, mouseX, mouseY, config.magnetRadius);
-                grad.addColorStop(0, 'rgba(96, 165, 250, 0.45)');
-                grad.addColorStop(0.3, 'rgba(96, 165, 250, 0.15)');
-                grad.addColorStop(1, 'rgba(96, 165, 250, 0)');
-                ctx.fillStyle = grad; ctx.beginPath();
-                ctx.arc(mouseX, mouseY, config.magnetRadius, 0, Math.PI * 2); ctx.fill();
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-                ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5;
-                ctx.beginPath(); ctx.arc(mouseX, mouseY, 40, 0, Math.PI * 2); ctx.stroke();
-                ctx.setLineDash([]);
+                // O gradiente é criado uma vez por ativação (ou se o mouse mover)
+                if (!magnetGradient) {
+                    magnetGradient = ctx.createRadialGradient(mouseX, mouseY, 5, mouseX, mouseY, config.magnetRadius);
+                    magnetGradient.addColorStop(0, 'rgba(96, 165, 250, 0.4)');
+                    magnetGradient.addColorStop(1, 'rgba(96, 165, 250, 0)');
+                }
+                ctx.fillStyle = magnetGradient;
+                ctx.beginPath(); ctx.arc(mouseX, mouseY, config.magnetRadius, 0, Math.PI * 2); ctx.fill();
             }
+
             for (let b of boxes) b.draw();
+            
             const pRad = config.particleRadius;
-            for (let p of particles) {
+            const pLen = particles.length;
+            for (let i = 0; i < pLen; i++) {
+                const p = particles[i];
                 const speed = p.vx*p.vx + p.vy*p.vy;
                 const ratio = Math.min(speed / 64, 1);
                 ctx.fillStyle = `hsl(${210 - ratio * 180}, 85%, 60%)`;
@@ -415,16 +482,15 @@
         }
 
         canvas.addEventListener('mousedown', (e) => {
-            // Ignora cliques se o menu estiver aberto e clicar nele
             if (!sidePanel.classList.contains('collapsed')) {
                 const rect = sidePanel.getBoundingClientRect();
                 if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) return;
             }
-            // Ignora clique no botão de toggle
             if (e.target.closest('#toggleBtn')) return;
             
             if (e.button === 0) {
                 mouseX = e.clientX; mouseY = e.clientY;
+                magnetGradient = null; // Reset gradient para recalcular na nova posição
                 mouseTimer = setTimeout(() => {
                     isMagnetActive = true;
                     magnetText.style.display = 'block';
@@ -434,6 +500,7 @@
 
         window.addEventListener('mousemove', (e) => {
             mouseX = e.clientX; mouseY = e.clientY;
+            if (isMagnetActive) magnetGradient = null; // Atualiza posição do gradiente
         });
 
         window.addEventListener('mouseup', (e) => {
@@ -446,16 +513,13 @@
                     let clickedBoxIndex = -1;
                     for (let i = boxes.length - 1; i >= 0; i--) {
                         if (boxes[i].isPointInside(e.clientX, e.clientY)) {
-                            clickedBoxIndex = i;
-                            break;
+                            clickedBoxIndex = i; break;
                         }
                     }
 
                     if (clickedBoxIndex !== -1) {
                         boxes[clickedBoxIndex].clicks++;
-                        if (boxes[clickedBoxIndex].clicks >= 3) {
-                            boxes.splice(clickedBoxIndex, 1);
-                        }
+                        if (boxes[clickedBoxIndex].clicks >= 3) boxes.splice(clickedBoxIndex, 1);
                     } else {
                         boxes.push(new Box(e.clientX, e.clientY, 35 + Math.random() * 45));
                     }
@@ -467,16 +531,12 @@
         });
 
         canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-        window.addEventListener('blur', () => { isMagnetActive = false; magnetText.style.display = 'none'; });
         window.addEventListener('resize', () => {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
         });
 
-        resetBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            init();
-        });
+        resetBtn.addEventListener('click', (e) => { e.stopPropagation(); init(); });
 
         window.onload = () => { init(); draw(); updateLanguage('pt'); };
     </script>
