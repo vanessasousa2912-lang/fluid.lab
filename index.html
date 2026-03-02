@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>fluid.lab!</title>
+    <!-- Favicon baseado na logo do Copilot -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect x=%2210%22 y=%2225%22 width=%2240%22 height=%2240%22 rx=%228%22 fill=%22%23007FFF%22 stroke=%22white%22 stroke-width=%224%22/><text x=%2255%22 y=%2265%22 font-family=%22sans-serif%22 font-weight=%22bold%22 font-size=%2228%22 fill=%22%23007FFF%22>FL</text></svg>">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { margin: 0; overflow: hidden; background-color: #030508; font-family: sans-serif; }
@@ -71,6 +74,21 @@
             outline: none;
         }
 
+        /* Logo no menu */
+        .brand-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+        .brand-box {
+            width: 24px;
+            height: 24px;
+            background: #007FFF;
+            border: 2px solid white;
+            border-radius: 6px;
+        }
+
         .controls::-webkit-scrollbar { width: 4px; }
         .controls::-webkit-scrollbar-track { background: transparent; }
         .controls::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
@@ -84,14 +102,17 @@
 
     <div id="sidePanel" class="controls">
         <div class="flex justify-between items-center mb-1">
-            <h2 id="txt-title" class="text-lg font-bold">fluid.lab!</h2>
+            <div class="brand-container">
+                <div class="brand-box"></div>
+                <h2 id="txt-title" class="text-lg font-bold">fluid.lab!</h2>
+            </div>
             <select id="langSelect">
                 <option value="pt">PT</option>
                 <option value="en">EN</option>
                 <option value="es">ES</option>
             </select>
         </div>
-        <p id="txt-subtitle" class="text-[9px] text-blue-400 mb-4 uppercase tracking-widest font-semibold">Física Otimizada</p>
+        <p id="txt-subtitle" class="text-[9px] text-blue-400 mb-4 uppercase tracking-widest font-semibold">Física Ultra Otimizada</p>
         
         <div class="flex flex-col">
             <div class="control-group">
@@ -153,19 +174,19 @@
 
         const translations = {
             pt: {
-                title: "fluid.lab!", subtitle: "Física Otimizada", particles: "Partículas",
+                title: "fluid.lab!", subtitle: "Física Ultra Otimizada", particles: "Partículas",
                 gravity: "Gravidade", pressure: "Pressão", viscosity: "Viscosidade",
                 cohesion: "Coesão (Densidade)", radius: "Raio de Influência",
                 reset: "Resetar Simulação", footer: "Clique: Cubo | 3x no Cubo: Apaga | Segure: Imã", magnet: "Imã Ativo"
             },
             en: {
-                title: "fluid.lab!", subtitle: "Optimized Physics", particles: "Particles",
+                title: "fluid.lab!", subtitle: "Ultra Optimized Physics", particles: "Particles",
                 gravity: "Gravity", pressure: "Pressure", viscosity: "Viscosity",
                 cohesion: "Cohesion (Density)", radius: "Influence Radius",
                 reset: "Reset Simulation", footer: "Click: Cube | 3x on Cube: Delete | Hold: Magnet", magnet: "Magnet Active"
             },
             es: {
-                title: "fluid.lab!", subtitle: "Física Optimizada", particles: "Partículas",
+                title: "fluid.lab!", subtitle: "Física Ultra Optimizada", particles: "Partículas",
                 gravity: "Gravedad", pressure: "Presión", viscosity: "Viscosidad",
                 cohesion: "Cohesión (Densidade)", radius: "Radio de Influencia",
                 reset: "Reiniciar Simulación", footer: "Click: Cubo | 3x en Cubo: Borrar | Mantener: Imán", magnet: "Imán Activo"
@@ -179,7 +200,6 @@
             magnetStrength: 2.5, magnetRadius: 220
         };
 
-        // SPATIAL HASH GRID - Otimização principal
         const grid = new Map();
         function buildSpatialGrid(cellSize) {
             grid.clear();
@@ -316,7 +336,7 @@
             particles = []; boxes = [];
             const count = config.particleCount;
             const cols = Math.ceil(Math.sqrt(count * (width/height)));
-            const spacing = Math.min(width, height) / (cols * 1.1);
+            const spacing = Math.min(width, height) / (cols * 1.5);
             for(let i=0; i < count; i++) {
                 const r = (i / cols) | 0;
                 const c = i % cols;
@@ -325,7 +345,6 @@
         }
 
         function solvePhysics() {
-            // Cache de valores
             const substeps = config.substeps;
             const gravity = config.gravity / substeps;
             const radius = config.smoothingRadius;
@@ -336,10 +355,8 @@
             const viscosity = config.viscosity;
 
             for (let step = 0; step < substeps; step++) {
-                // Caixas
                 for (let b of boxes) b.update(substeps, gravity);
                 
-                // Colisão Caixa-Caixa
                 for (let i = 0; i < boxes.length; i++) {
                     for (let j = i + 1; j < boxes.length; j++) {
                         let b1 = boxes[i], b2 = boxes[j];
@@ -359,10 +376,8 @@
                     }
                 }
 
-                // Grid Espacial
                 buildSpatialGrid(radius);
 
-                // Densidade via Grid
                 const pLen = particles.length;
                 for (let i = 0; i < pLen; i++) {
                     const p1 = particles[i];
@@ -373,8 +388,7 @@
 
                     for (let ox = -1; ox <= 1; ox++) {
                         for (let oy = -1; oy <= 1; oy++) {
-                            const key = `${gx + ox},${gy + oy}`;
-                            const cell = grid.get(key);
+                            const cell = grid.get(`${gx + ox},${gy + oy}`);
                             if (!cell) continue;
                             for (let j of cell) {
                                 if (i === j) continue;
@@ -393,7 +407,6 @@
                     }
                 }
 
-                // Pressão e Viscosidade via Grid
                 for (let i = 0; i < pLen; i++) {
                     const p1 = particles[i];
                     const pressure = (p1.density - targetDensity) * pressureMultiplier;
@@ -404,11 +417,10 @@
 
                     for (let ox = -1; ox <= 1; ox++) {
                         for (let oy = -1; oy <= 1; oy++) {
-                            const key = `${gx + ox},${gy + oy}`;
-                            const cell = grid.get(key);
+                            const cell = grid.get(`${gx + ox},${gy + oy}`);
                             if (!cell) continue;
                             for (let j of cell) {
-                                if (j <= i) continue; // Evita duplicar forças
+                                if (j <= i) continue;
                                 const p2 = particles[j];
                                 const dx = p2.x - p1.x; const dy = p2.y - p1.y;
                                 const d2 = dx * dx + dy * dy;
@@ -430,7 +442,6 @@
                         }
                     }
 
-                    // Colisão com Caixas
                     for (let b of boxes) {
                         if (p1.x > b.x && p1.x < b.x + b.w && p1.y > b.y && p1.y < b.y + b.h) {
                             let dL = p1.x - b.x, dR = b.x + b.w - p1.x, dT = p1.y - b.y, dB = b.y + b.h - p1.y;
@@ -451,17 +462,18 @@
             ctx.fillStyle = '#030508';
             ctx.fillRect(0, 0, width, height);
             
-            // Reduz substeps se tiver muitas partículas para manter FPS
-            config.substeps = particles.length > 3000 ? 2 : 4;
+            const pCount = particles.length;
+            if (pCount > 7000) config.substeps = 1;
+            else if (pCount > 3500) config.substeps = 2;
+            else config.substeps = 4;
 
             solvePhysics();
 
             if (isMagnetActive) {
-                // O gradiente é criado uma vez por ativação (ou se o mouse mover)
                 if (!magnetGradient) {
                     magnetGradient = ctx.createRadialGradient(mouseX, mouseY, 5, mouseX, mouseY, config.magnetRadius);
-                    magnetGradient.addColorStop(0, 'rgba(96, 165, 250, 0.4)');
-                    magnetGradient.addColorStop(1, 'rgba(96, 165, 250, 0)');
+                    magnetGradient.addColorStop(0, 'rgba(0, 127, 255, 0.4)');
+                    magnetGradient.addColorStop(1, 'rgba(0, 127, 255, 0)');
                 }
                 ctx.fillStyle = magnetGradient;
                 ctx.beginPath(); ctx.arc(mouseX, mouseY, config.magnetRadius, 0, Math.PI * 2); ctx.fill();
@@ -469,14 +481,19 @@
 
             for (let b of boxes) b.draw();
             
-            const pRad = config.particleRadius;
-            const pLen = particles.length;
-            for (let i = 0; i < pLen; i++) {
+            const pRad = pCount > 5000 ? 1.5 : (pCount > 2500 ? 2.5 : config.particleRadius);
+            
+            for (let i = 0; i < pCount; i++) {
                 const p = particles[i];
                 const speed = p.vx*p.vx + p.vy*p.vy;
                 const ratio = Math.min(speed / 64, 1);
                 ctx.fillStyle = `hsl(${210 - ratio * 180}, 85%, 60%)`;
-                ctx.beginPath(); ctx.arc(p.x, p.y, pRad, 0, Math.PI * 2); ctx.fill();
+                
+                if (pCount > 5000) {
+                    ctx.fillRect(p.x - pRad, p.y - pRad, pRad * 2, pRad * 2);
+                } else {
+                    ctx.beginPath(); ctx.arc(p.x, p.y, pRad, 0, Math.PI * 2); ctx.fill();
+                }
             }
             requestAnimationFrame(draw);
         }
@@ -490,7 +507,7 @@
             
             if (e.button === 0) {
                 mouseX = e.clientX; mouseY = e.clientY;
-                magnetGradient = null; // Reset gradient para recalcular na nova posição
+                magnetGradient = null;
                 mouseTimer = setTimeout(() => {
                     isMagnetActive = true;
                     magnetText.style.display = 'block';
@@ -500,7 +517,7 @@
 
         window.addEventListener('mousemove', (e) => {
             mouseX = e.clientX; mouseY = e.clientY;
-            if (isMagnetActive) magnetGradient = null; // Atualiza posição do gradiente
+            if (isMagnetActive) magnetGradient = null;
         });
 
         window.addEventListener('mouseup', (e) => {
