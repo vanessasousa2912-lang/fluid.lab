@@ -464,7 +464,7 @@
             
             const pCount = particles.length;
             // Ajuste solicitado: Mínimo de 2 substeps para manter estabilidade
-            if (pCount > 3500) config.substeps = 2;
+            if (pCount > 5000) config.substeps = 2;
             else config.substeps = 4;
 
             solvePhysics();
