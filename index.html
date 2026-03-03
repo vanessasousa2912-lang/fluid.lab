@@ -463,8 +463,8 @@
             ctx.fillRect(0, 0, width, height);
             
             const pCount = particles.length;
-            if (pCount > 7000) config.substeps = 1;
-            else if (pCount > 3500) config.substeps = 2;
+            // Ajuste solicitado: Mínimo de 2 substeps para manter estabilidade
+            if (pCount > 3500) config.substeps = 2;
             else config.substeps = 4;
 
             solvePhysics();
