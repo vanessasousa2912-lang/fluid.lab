@@ -464,9 +464,10 @@
             
             const pCount = particles.length;
             
-            if (pCount > 7000) config.substeps = 2;
+            if (pCount > 7000 || pCount = 7000 ) config.substeps = 2;
             else if (pCount > 5000 && pCount < 7000) config.substeps = 4
-            else if (pCount < 2000) config.substeps = 8;
+            else if (pCount = 5000) config.substeps = 4
+            else if (pCount < 2000 || pCount = 2000 ) config.substeps = 8;
             else config.substeps = 10;
 
             solvePhysics();
