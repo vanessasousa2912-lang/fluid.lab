@@ -463,8 +463,9 @@
             ctx.fillRect(0, 0, width, height);
             
             const pCount = particles.length;
-            // Ajuste solicitado: Mínimo de 2 substeps para manter estabilidade
+            // Ajuste: Mínimo de 2 substeps para manter estabilidade, e colacar um else if para melhor configuração antes de 2000
             if (pCount > 5000) config.substeps = 2;
+            else if (pCount < 2000 ) config.substeps = 8;
             else config.substeps = 4;
 
             solvePhysics();
@@ -491,7 +492,12 @@
                 
                 if (pCount > 5000) {
                     ctx.fillRect(p.x - pRad, p.y - pRad, pRad * 2, pRad * 2);
-                } else {
+                }
+                else if (pCount < 2000 ) {
+                
+                }
+                
+                else {
                     ctx.beginPath(); ctx.arc(p.x, p.y, pRad, 0, Math.PI * 2); ctx.fill();
                 }
             }
